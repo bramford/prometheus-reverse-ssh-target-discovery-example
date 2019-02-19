@@ -1,0 +1,241 @@
+---
+- hosts: all
+  user: admin
+
+  handlers:
+    - name: apt update cache
+      apt:
+        update_cache: yes
+      tags:
+        - apt
+      become: yes
+
+    - name: restart prometheus
+      systemd:
+        name: prometheus
+        state: restarted
+      when: not start_prometheus|changed
+
+    - name: restart prune-prometheus-tunnels timer
+      systemd:
+        name: prune-prometheus-tunnels.timer
+        state: restarted
+      when: not start_prune_prometheus_tunnels_timer|changed
+
+    - name: restart tmp-dirs-prometheus-tunnels
+      systemd:
+        name: tmp-dirs-prometheus-tunnels
+        state: restarted
+      when: not start_tmp_dirs_prometheus_tunnels|changed
+
+  tasks:
+    - name: Install acl
+      apt:
+        name: acl
+      become: yes
+      tags:
+        - apt
+
+    - name: Create stretch-backports apt config
+      copy:
+        content: |
+          deb http://deb.debian.org/debian stretch-backports main contrib non-free
+        dest: /etc/apt/sources.list.d/stretch-backports.list
+        owner: root
+        group: root
+        mode: 0644
+      become: yes
+      notify:
+        - apt update cache
+      tags:
+        - apt
+
+    - meta: flush_handlers
+
+    - name: Install common packages
+      apt:
+        name:
+          - openssh-server
+          - rsync
+          - jq
+      become: yes
+      tags:
+        - apt
+
+    - name: Install common packages (backports)
+      apt:
+        name:
+          - prometheus-node-exporter
+        default_release: stretch-backports
+      become: yes
+      tags:
+        - apt
+
+    - name: Create /usr/lib/systemd/system dir
+      file:
+        path: /usr/lib/systemd/system
+        state: directory
+        owner: root
+        group: root
+        mode: 0755
+      become: yes
+      tags:
+        - systemd
+
+    - name: Create /usr/local/bin dir
+      file:
+        path: /usr/local/bin
+        state: directory
+        owner: root
+        group: root
+        mode: 0755
+      become: yes
+
+  tasks:
+    - name: Install packages
+      apt:
+        name:
+          - prometheus
+        default_release: stretch-backports
+      become: yes
+      tags:
+        - apt
+
+    - name: Add prometheus-tunnels user
+      user:
+        name: prometheus-tunnels
+        home: /srv/prometheus-tunnels
+      become: yes
+
+    - name: Authorise key(s) for prometheus-tunnel clients
+      authorized_key:
+        user: prometheus-tunnels
+        key: "{{ item }}"
+      with_items: "{{ ssh_pubkeys }}"
+      become: yes
+
+    - name: Add prometheus to prometheus-tunnels group
+      user:
+        name: prometheus
+        group: prometheus-tunnels
+        append: yes
+      become: yes
+
+    - name: Create prometheus.yml
+      copy:
+        src: files/etc/prometheus/prometheus.yml
+        dest: /etc/prometheus/prometheus.yml
+        owner: prometheus
+        group: prometheus
+        mode: 0644
+      become: yes
+      notify:
+        - restart prometheus
+      tags:
+        - prometheus
+
+    - name: Enable prometheus
+      systemd:
+        name: prometheus
+        enabled: yes
+      become: yes
+      tags:
+        - prometheus
+
+    - name: Start prometheus
+      systemd:
+        name: prometheus
+        state: started
+      become: yes
+      register: start_prometheus
+      tags:
+        - prometheus
+
+    - name: Create prune-prometheus-tunnels.sh
+      copy:
+        src: files/usr/local/bin/prune-prometheus-tunnels
+        dest: /usr/local/bin/prune-prometheus-tunnels
+        owner: root
+        group: root
+        mode: 0755
+      become: yes
+      tags:
+        - prune-prometheus-tunnels
+
+    - name: Create prune-prometheus-tunnels.service
+      copy:
+        src: files/usr/lib/systemd/system/prune-prometheus-tunnels.service
+        dest: /usr/lib/systemd/system/prune-prometheus-tunnels.service
+        owner: root
+        group: root
+        mode: 0644
+      become: yes
+      notify:
+        - systemctl daemon-reload
+      tags:
+        - prune-prometheus-tunnels
+
+    - name: Create prune-prometheus-tunnels.timer
+      copy:
+        src: files/usr/lib/systemd/system/prune-prometheus-tunnels.timer
+        dest: /usr/lib/systemd/system/prune-prometheus-tunnels.timer
+        owner: root
+        group: root
+        mode: 0644
+      become: yes
+      notify:
+        - systemctl daemon-reload
+        - restart prune-prometheus-tunnels timer
+      tags:
+        - prune-prometheus-tunnels
+
+    - name: Enable prune-prometheus-tunnels timer
+      systemd:
+        name: prune-prometheus-tunnels.timer
+        enabled: yes
+        daemon_reload: yes
+      become: yes
+      tags:
+        - prune-prometheus-tunnels
+
+    - name: Start prune-prometheus-tunnels timer
+      systemd:
+        name: prune-prometheus-tunnels.timer
+        state: started
+        daemon_reload: yes
+      become: yes
+      register: start_prune_prometheus_tunnels_timer
+      tags:
+        - prune-prometheus-tunnels
+
+    - name: Create tmp-dirs-prometheus-tunnels service
+      copy:
+        src: files/usr/lib/systemd/system/tmp-dirs-prometheus-tunnels.service
+        dest: /usr/lib/systemd/system/tmp-dirs-prometheus-tunnels.service
+        owner: root
+        group: root
+        mode: 0644
+      become: yes
+      notify:
+        - restart tmp-dirs-prometheus-tunnels
+      tags:
+        - tmp-dirs-prometheus-tunnels
+
+    - name: Enable tmp-dirs-prometheus-tunnels
+      systemd:
+        name: tmp-dirs-prometheus-tunnels
+        enabled: yes
+        daemon_reload: yes
+      become: yes
+      tags:
+        - tmp-dirs-prometheus-tunnels
+
+    - name: Start tmp-dirs-prometheus-tunnels
+      systemd:
+        name: tmp-dirs-prometheus-tunnels
+        state: started
+        daemon_reload: yes
+      become: yes
+      register: start_tmp_dirs_prometheus-tunnels
+      tags:
+        - tmp-dirs-prometheus-tunnels

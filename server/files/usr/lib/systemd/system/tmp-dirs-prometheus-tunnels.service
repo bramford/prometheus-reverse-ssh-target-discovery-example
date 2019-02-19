@@ -1,0 +1,13 @@
+[Unit]
+Description=Create prometheus file service discovery tmp config directory
+After=multi-user.target
+Before=prometheus.service
+Before=prune-prometheus-tunnels.timer
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/bin/mkdir -p /tmp/file_sd_configs && chown -R prometheus-tunnels:prometheus-tunnels /tmp/file_sd_configs && chmod -R 770 /tmp/file_sd_configs'
+
+[Install]
+WantedBy=multi-user.target
+Alias=tmp-dirs-prometheus-tunnels.service

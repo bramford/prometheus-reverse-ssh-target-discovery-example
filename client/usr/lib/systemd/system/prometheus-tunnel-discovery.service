@@ -1,0 +1,12 @@
+[Unit]
+Description=Discover prometheus tunnel socket & send to remote
+After=prometheus-tunnel.service
+BindsTo=prometheus-tunnel.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/discover-prometheus-tunnel.sh
+
+[Install]
+WantedBy=prometheus-tunnel.service
+Alias=prometheus-tunnel-discovery.service
