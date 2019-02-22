@@ -8,7 +8,7 @@ apt update
 cat packages.list | xargs apt install -y
 
 # Reload systemd
-systemctl daemon-reaload
+systemctl daemon-reload
 
 # Enable services
 systemctl enable prometheus-node-exporter
@@ -16,7 +16,7 @@ systemctl enable ssh
 
 # Create prometheus-tunnel user
 useradd -b /srv -m prometheus-tunnel
-sudo prometheus-tunnel -c ssh-keygen
+su - prometheus-tunnel -c ssh-keygen
 chown -R prometheus-tunnel:prometheus-tunnel /srv/prometheus-tunnel
 
 # Enable prometheus tunnel & discovery
