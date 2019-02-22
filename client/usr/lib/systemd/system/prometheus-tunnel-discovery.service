@@ -4,8 +4,9 @@ After=prometheus-tunnel.service
 BindsTo=prometheus-tunnel.service
 
 [Service]
+EnvironmentFile=/usr/lib/systemd/system/prometheus-tunnel.service.d/tunnel.conf
 Type=oneshot
-ExecStart=/usr/local/bin/discover-prometheus-tunnel.sh
+ExecStart=/usr/local/bin/discover-prometheus-tunnel
 
 [Install]
 WantedBy=prometheus-tunnel.service

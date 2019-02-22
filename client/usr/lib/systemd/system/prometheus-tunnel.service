@@ -3,6 +3,7 @@ Description=Open SSH tunnel to prometheus server with reverse port
 After=network.target
 
 [Service]
+EnvironmentFile=/usr/lib/systemd/system/prometheus-tunnel.service.d/tunnel.conf
 User=prometheus-tunnel
 ExecStart=/usr/bin/ssh -o StrictHostKeyChecking=no -N -R localhost:0:localhost:9100 ${PROMETHEUS_TUNNEL_USER}@${PROMETHEUS_TUNNEL_HOST} -p ${PROMETHEUS_TUNNEL_PORT}
 KillMode=process

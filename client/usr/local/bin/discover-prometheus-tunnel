@@ -1,0 +1,18 @@
+#!/bin/sh -x
+sleep 5
+FORWARDED_NODE_EXPORTER_PORT=$(journalctl -u prometheus-tunnel -n 1 -o cat -r _TRANSPORT=stdout | grep -E -e '^Allocated port [0-9]+ for remote forward to localhost\:9100' | sed -r -e 's/^Allocated port ([0-9]+) for remote forward to localhost\:9100/\1/g')
+tempfile=$(tempfile --suffix .json)
+tempfile_basename=$(basename ${tempfile})
+echo '
+[
+  {
+    "targets": ["localhost:'${FORWARDED_NODE_EXPORTER_PORT}'"],
+    "labels": {
+      "hostname": "'$(hostname)'"
+    }
+  }
+]
+' > ${tempfile}
+chmod 644 ${tempfile}
+rsync -e 'ssh -i /srv/prometheus-tunnel/.ssh/id_rsa -o StrictHostKeyChecking=no' -vp ${tempfile} ${PROMETHEUS_TUNNEL_USER}@${PROMETHEUS_TUNNEL_HOST}:/tmp/file_sd_configs/${tempfile_basename}
+rm -f ${tempfile}
